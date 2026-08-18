@@ -331,6 +331,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     if (WM_TASKBAR_CREATED == message)
     {
+        // Explorer may recreate taskbar buttons for visible top-level windows.
+        // Reapply the user's taskbar preference before restoring any tray icon.
+        ShowInTaskbar(hWnd, !_header->hide_taskbar);
         if (_header->show_systray)
         {
             // Explorer discarded the old icon, so force it to be added again.

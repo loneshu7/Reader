@@ -10,8 +10,6 @@ typedef struct char_info_t
     int dc_idx;
     int cx;
     int cy;
-    int abc_a;
-    int abc_b;
 } char_info_t;
 
 typedef struct line_info_t

@@ -468,7 +468,7 @@ void Page::DrawAlphaText(HDC hdc, char_info_t* p_char, int x, int y, int h, alph
     BYTE FillR,FillG,FillB,ThisA;
     BYTE *DataPtr;
     BOOL is_tag = FALSE;
-    int i,j,left,right;
+    int i,j;
     extern BYTE _textAlpha;
 
     is_tag = p_char->dc_idx >= 2;
@@ -479,7 +479,7 @@ void Page::DrawAlphaText(HDC hdc, char_info_t* p_char, int x, int y, int h, alph
     {
         SetTextColor(hdc, 0x00FFFFFF);
         SetBkColor(hdc, 0x00000000);
-        SetBkMode(hdc, TRANSPARENT);
+        SetBkMode(hdc, OPAQUE);
 
         FillR = GetRValue(m_dcList[p_char->dc_idx].TextColor);
         FillG = GetGValue(m_dcList[p_char->dc_idx].TextColor);
@@ -489,17 +489,10 @@ void Page::DrawAlphaText(HDC hdc, char_info_t* p_char, int x, int y, int h, alph
     // draw text
     TextOut(hdc, x, y + (h - p_char->cy), &m_Text[p_char->idx], 1);
 
-    // Process the glyph's actual black box instead of only its advance width.
-    // Small punctuation such as U+201C can extend to the left of the origin.
-    left = is_tag ? x : x + p_char->abc_a - 1;
-    right = is_tag ? x + p_char->cx : x + p_char->abc_a + p_char->abc_b + 1;
-    left = max(0, left);
-    right = min(p_alpha_dc->width, right);
-
     // convert pixel
     for (i = p_alpha_dc->height - y - (h - p_char->cy) - 1; i >= p_alpha_dc->height - y - h; i--)
     {
-        for (j = left; j < right; j++)
+        for (j = x; j < x + p_char->cx; j++)
         {
             DataPtr = &p_alpha_dc->pvBits[(i * p_alpha_dc->width + j) * 4];
 
@@ -520,12 +513,8 @@ void Page::DrawAlphaText(HDC hdc, char_info_t* p_char, int x, int y, int h, alph
                         m_BlankPage = FALSE;
                 }
 
-                // ClearType stores coverage in separate RGB subpixels. Using
-                // only the blue channel makes thin glyphs disappear.
-                ThisA = max(*DataPtr, max(*(DataPtr + 1), *(DataPtr + 2)));
-                if (ThisA == 0 && *(DataPtr + 3) != 0)
-                    continue; // keep an overlapping glyph converted earlier
-                *DataPtr++ = (FillB * ThisA * _textAlpha) >> 16;
+                ThisA = *DataPtr; // Move alpha and pre-multiply with RGB 
+                *DataPtr++ = (FillB * ThisA * _textAlpha) >> 16; 
                 *DataPtr++ = (FillG * ThisA * _textAlpha) >> 16; 
                 *DataPtr++ = (FillR * ThisA * _textAlpha) >> 16;
                 *DataPtr++ = (ThisA * _textAlpha) >> 8; // Set text Alpha
@@ -748,7 +737,6 @@ int Page::ParagraphToLines(HDC hdc, int start, int length, int width, int height
     int is_title = IsChapter(start);
     int indent_width = GetIndentWidth(hdc);
     SIZE sz;
-    ABC abc;
     int x, y, w, h;
     int char_start, line_start, word_start;
     int line_len, char_len, word_height, word_width; // for WORD_WRAP
@@ -779,16 +767,6 @@ int Page::ParagraphToLines(HDC hdc, int start, int length, int width, int height
         chars[i - start].dc_idx = m_dcIndex;
         chars[i - start].cx = sz.cx;
         chars[i - start].cy = sz.cy;
-        if (GetCharABCWidths(hdc, m_Text[i], m_Text[i], &abc))
-        {
-            chars[i - start].abc_a = abc.abcA;
-            chars[i - start].abc_b = abc.abcB;
-        }
-        else
-        {
-            chars[i - start].abc_a = 0;
-            chars[i - start].abc_b = sz.cx;
-        }
 
         if (i == start && x == indent_width && x + sz.cx > width)
         {
